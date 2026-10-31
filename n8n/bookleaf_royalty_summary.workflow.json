@@ -1,0 +1,954 @@
+{
+  "name": "BookLeaf - Royalty Summary Email (Bubble webhook, Claude on Bedrock)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## BookLeaf - Royalty Summary (Bubble -> n8n -> Claude -> Bubble)\n**Trigger:** Bubble admin clicks \"Generate & Send Royalty Summary\" (or bulk). Bubble creates a Notification Log row (status *Processing*) and POSTs the author's full royalty data here.\n\n**Security:** Header Auth credential - requests without the right `X-BookLeaf-Key` get 403 before any node runs.\n\n**Contract:** every handled outcome answers HTTP 200 with `{status: Success | Failed | Skipped, ...}` so Bubble can update the log from the response. If the Bubble Data API is available (paid plan), the same result is also PATCHed to the log as a callback.\n\n**Edit settings in the *Config* node** (Bedrock model + endpoint, email mode, dedupe window, Bubble API base).",
+        "width": 1060,
+        "height": 300,
+        "color": 4
+      },
+      "id": "9b8d5170-5643-40cb-a86a-03ca0353d556",
+      "name": "Note: Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Validate & de-duplicate\n- Rejects malformed payloads and books whose *earned - paid != pending* - we never email inconsistent numbers.\n- Duplicate guard: one run per author per window (default 120 s), stored in workflow static data. Failed runs release the lock so the admin can retry immediately.",
+        "width": 620,
+        "height": 520,
+        "color": 7
+      },
+      "id": "77ebae62-42a9-470b-a17b-9dc2859827af",
+      "name": "Note: Guards",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        380,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Facts in code, words from Claude\n- *Compute Royalty Facts* decides every figure, the green/yellow/red status, the next payout date (quarterly + 45 days) and the scenario (all paid / in cycle / overdue / below ₹1,000 / in production).\n- Claude Haiku on **AWS Bedrock** writes the email from those facts only (structured JSON output). SigV4 via the AWS credential; 3 tries, 45 s timeout.\n- Model + region: `ai_model`, `bedrock_endpoint` in Config.\n- *Check AI Output* rejects any email that drops a total or a book, or mentions an amount we did not supply.",
+        "width": 900,
+        "height": 520,
+        "color": 7
+      },
+      "id": "38ef680d-3475-4360-a723-974ad95077df",
+      "name": "Note: AI",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Deliver\n`email_mode` in Config:\n- **off** - log to Bubble only (required output)\n- **redirect** - send to `email_redirect_to` (safe for demos; sample author emails are real domains)\n- **live** - send to the author\n\nSMTP failures do not fail the summary; they are reported as `email_status: Failed`.",
+        "width": 720,
+        "height": 520,
+        "color": 7
+      },
+      "id": "d390dc77-9d8f-4513-a4be-6ecde432a78e",
+      "name": "Note: Delivery",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Report back to Bubble\n- *Finalize Result* builds one result object for every path (Success / Failed / Skipped).\n- Optional callback: PATCH `/obj/notificationlog/{log_id}` on the Bubble Data API (needs a Bubble plan with the app API). Errors here are recorded but never block the webhook response.\n- *Respond to Bubble* always answers, so the admin UI never hangs.",
+        "width": 760,
+        "height": 520,
+        "color": 7
+      },
+      "id": "b90c1c2b-7c5a-43ad-a647-b82e2d927e7c",
+      "name": "Note: Callback",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2920,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bookleaf/royalty-summary",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "118f63bf-4807-4e7c-a14c-55cd1195ddee",
+      "name": "Bubble Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "4dbd50cc-a380-4a33-a2cb-90c1ad789cb6",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bookleafWebhookKey",
+          "name": "BookLeaf Webhook Key (X-BookLeaf-Key)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "44a9da44-bf4b-42ab-af58-a45166e473df",
+              "name": "bedrock_endpoint",
+              "value": "https://bedrock-runtime.us-east-1.amazonaws.com",
+              "type": "string"
+            },
+            {
+              "id": "4e0fc441-ba43-4b2e-a977-92809747ca53",
+              "name": "ai_model",
+              "value": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+              "type": "string"
+            },
+            {
+              "id": "3b90f9ee-d33c-4a64-a095-99f3fb60c480",
+              "name": "payout_threshold_inr",
+              "value": 1000,
+              "type": "number"
+            },
+            {
+              "id": "128ae792-a1a9-4b1e-a27f-3d94c3aac88b",
+              "name": "dedupe_window_seconds",
+              "value": 120,
+              "type": "number"
+            },
+            {
+              "id": "a902411b-5b6d-457b-adce-0d25464b2a4d",
+              "name": "email_mode",
+              "value": "redirect",
+              "type": "string"
+            },
+            {
+              "id": "cac999d2-6d44-47b1-ad37-852ab4a4879c",
+              "name": "email_redirect_to",
+              "value": "replace-with-your-inbox@example.com",
+              "type": "string"
+            },
+            {
+              "id": "ec0bfe72-c0e4-4036-a1e8-e07372d8b4d5",
+              "name": "email_from",
+              "value": "BookLeaf Royalties <replace-with-your-smtp-sender@example.com>",
+              "type": "string"
+            },
+            {
+              "id": "0d4c7981-6d14-4d35-a5d8-05ac3f8bfe6f",
+              "name": "support_email",
+              "value": "support@bookleaf.example",
+              "type": "string"
+            },
+            {
+              "id": "d5fa3d33-a6e8-4407-a528-26d02600908f",
+              "name": "overdue_commitment",
+              "value": "Our royalties team will review your account and confirm the exact payout date to you within 2 business days.",
+              "type": "string"
+            },
+            {
+              "id": "c706552d-45b0-4ad9-a29a-acb1122ddf93",
+              "name": "bubble_callback_enabled",
+              "value": "false",
+              "type": "string"
+            },
+            {
+              "id": "da81f2c2-f00d-4c20-a5f0-9610c3732495",
+              "name": "bubble_api_base",
+              "value": "https://YOUR-APP.bubbleapps.io/version-test/api/1.1",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "f3eef51a-21ee-4b4a-aca2-67443ed174ef",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\nfunction parseDay(value) {\n  if (value === null || value === undefined) return null;\n  const s = String(value).trim();\n  if (s === '' || s.toLowerCase() === 'null') return null;\n  if (/^\\d{10,13}$/.test(s)) {\n    const ms = s.length === 13 ? Number(s) : Number(s) * 1000;\n    const d = new Date(ms);\n    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));\n  }\n  const m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));\n  const d = new Date(s);\n  if (Number.isNaN(d.getTime())) return undefined; // present but unparseable\n  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));\n}\n\nfunction parseAmount(value) {\n  if (value === null || value === undefined) return null;\n  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;\n  const s = String(value).replace(/[,₹\\s]/g, '');\n  if (s === '' || s.toLowerCase() === 'null') return null;\n  const n = Number(s);\n  return Number.isFinite(n) ? n : undefined;\n}\n\nfunction parseYesNo(value) {\n  if (typeof value === 'boolean') return value;\n  const s = String(value === undefined || value === null ? '' : value).trim().toLowerCase();\n  if (['yes', 'true', '1'].includes(s)) return true;\n  if (['no', 'false', '0', ''].includes(s)) return false;\n  return undefined;\n}\n\nfunction validatePayload(body) {\n  const errors = [];\n  if (!body || typeof body !== 'object') {\n    return { ok: false, errors: ['Body must be a JSON object'], payload: null };\n  }\n  const author = body.author || {};\n  const requireText = (v, field) => {\n    if (typeof v !== 'string' || v.trim() === '') errors.push(`${field} is required`);\n    return typeof v === 'string' ? v.trim() : '';\n  };\n  const logId = requireText(body.log_id, 'log_id');\n  const authorId = requireText(author.id, 'author.id');\n  const name = requireText(author.name, 'author.name');\n  const email = requireText(author.email, 'author.email');\n  if (email && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) errors.push('author.email is not a valid email');\n  if (!Array.isArray(body.books)) errors.push('books must be an array');\n\n  const books = (Array.isArray(body.books) ? body.books : []).map((b, i) => {\n    const at = `books[${i}]`;\n    if (!b || typeof b !== 'object') { errors.push(`${at} must be an object`); return null; }\n    const num = (k) => {\n      const v = parseAmount(b[k]);\n      if (v === undefined) errors.push(`${at}.${k} is not a number`);\n      return v === undefined ? null : v;\n    };\n    const day = (k) => {\n      const v = parseDay(b[k]);\n      if (v === undefined) errors.push(`${at}.${k} is not a date`);\n      return v === undefined ? null : v;\n    };\n    const status = typeof b.status === 'string' ? b.status.trim() : '';\n    if (!b.title || String(b.title).trim() === '') errors.push(`${at}.title is required`);\n    if (!status) errors.push(`${at}.status is required`);\n    let isPublished = parseYesNo(b.is_published);\n    if (isPublished === undefined) { errors.push(`${at}.is_published must be yes/no`); isPublished = false; }\n    // The dataset's status text is the source of truth if Bubble omitted the flag.\n    if (b.is_published === undefined) isPublished = /^published/i.test(status);\n    const book = {\n      book_code: String(b.book_code || '').trim(),\n      title: String(b.title || '').trim(),\n      isbn: String(b.isbn || '').trim(),\n      genre: String(b.genre || '').trim(),\n      status,\n      is_published: isPublished,\n      publication_date: day('publication_date'),\n      mrp: num('mrp'),\n      royalty_per_copy: num('royalty_per_copy'),\n      copies_sold: num('copies_sold') || 0,\n      total_royalty_earned: num('total_royalty_earned') || 0,\n      royalty_paid: num('royalty_paid') || 0,\n      royalty_pending: num('royalty_pending') || 0,\n      last_payout_date: day('last_payout_date'),\n      available_on: String(b.available_on || '').split(',').map((p) => p.trim()).filter(Boolean),\n    };\n    if (Math.abs(book.total_royalty_earned - book.royalty_paid - book.royalty_pending) > 1) {\n      errors.push(`${at} (${book.title}): earned - paid != pending; refusing to email inconsistent figures`);\n    }\n    return book;\n  }).filter(Boolean);\n\n  const asOf = parseDay(body.as_of_date);\n  if (asOf === undefined) errors.push('as_of_date is not a date');\n\n  return {\n    ok: errors.length === 0,\n    errors,\n    payload: {\n      log_id: logId,\n      trigger_type: body.trigger_type === 'bulk' ? 'bulk' : 'single',\n      triggered_by: typeof body.triggered_by === 'string' ? body.triggered_by : '',\n      as_of_date: asOf || null,\n      author: {\n        id: authorId,\n        author_code: String(author.author_code || '').trim(),\n        name,\n        email,\n        city: String(author.city || '').trim(),\n      },\n      books,\n    },\n  };\n}\n\n// ---- node logic ----\nconst body = $('Bubble Webhook').first().json.body;\nconst result = validatePayload(body);\nreturn [{\n  json: {\n    valid: result.ok,\n    errors: result.errors,\n    log_id: result.payload ? result.payload.log_id : null,\n    author_id: result.payload ? result.payload.author.id : null,\n    author_name: result.payload ? result.payload.author.name : null,\n  },\n}];\n"
+      },
+      "id": "bb58dd13-ee03-488e-afed-95ff21f92e6c",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "e9f89d44-ba9e-43d8-aa40-15e795704359",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f80cc646-acc7-43d4-a3b0-25d72291a9a0",
+      "name": "Payload Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\nfunction checkAndLock(state, authorId, logId, nowMs, windowSeconds) {\n  state.locks = state.locks || {};\n  for (const [k, v] of Object.entries(state.locks)) {\n    if (nowMs - v.at > windowSeconds * 1000) delete state.locks[k];\n  }\n  const existing = state.locks[authorId];\n  if (existing) {\n    return {\n      duplicate: true,\n      reason: existing.log_id === logId\n        ? 'Same request received twice (retry); the first one is being processed.'\n        : `A summary for this author was already triggered ${Math.round((nowMs - existing.at) / 1000)}s ago (log ${existing.log_id}).`,\n      original_log_id: existing.log_id,\n    };\n  }\n  state.locks[authorId] = { log_id: logId, at: nowMs };\n  return { duplicate: false };\n}\n\n// ---- node logic ----\nconst cfg = $('Config').first().json;\nconst v = $input.first().json;\nconst state = $getWorkflowStaticData('global');\nconst r = checkAndLock(state, v.author_id, v.log_id, Date.now(), Number(cfg.dedupe_window_seconds));\nreturn [{ json: { ...v, duplicate: r.duplicate, duplicate_reason: r.reason || null, original_log_id: r.original_log_id || null } }];\n"
+      },
+      "id": "1d5cfe1d-72db-45da-acfa-e40e4d69bcb3",
+      "name": "Duplicate Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "dfe3ed6d-c887-454b-a6bf-c7bc9ba6e57d",
+              "leftValue": "={{ $json.duplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "15cec992-81a6-4709-a4cd-35a8582cdff6",
+      "name": "Already Triggered?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\nfunction parseDay(value) {\n  if (value === null || value === undefined) return null;\n  const s = String(value).trim();\n  if (s === '' || s.toLowerCase() === 'null') return null;\n  if (/^\\d{10,13}$/.test(s)) {\n    const ms = s.length === 13 ? Number(s) : Number(s) * 1000;\n    const d = new Date(ms);\n    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));\n  }\n  const m = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));\n  const d = new Date(s);\n  if (Number.isNaN(d.getTime())) return undefined; // present but unparseable\n  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));\n}\n\nfunction parseAmount(value) {\n  if (value === null || value === undefined) return null;\n  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;\n  const s = String(value).replace(/[,₹\\s]/g, '');\n  if (s === '' || s.toLowerCase() === 'null') return null;\n  const n = Number(s);\n  return Number.isFinite(n) ? n : undefined;\n}\n\nfunction parseYesNo(value) {\n  if (typeof value === 'boolean') return value;\n  const s = String(value === undefined || value === null ? '' : value).trim().toLowerCase();\n  if (['yes', 'true', '1'].includes(s)) return true;\n  if (['no', 'false', '0', ''].includes(s)) return false;\n  return undefined;\n}\n\nfunction validatePayload(body) {\n  const errors = [];\n  if (!body || typeof body !== 'object') {\n    return { ok: false, errors: ['Body must be a JSON object'], payload: null };\n  }\n  const author = body.author || {};\n  const requireText = (v, field) => {\n    if (typeof v !== 'string' || v.trim() === '') errors.push(`${field} is required`);\n    return typeof v === 'string' ? v.trim() : '';\n  };\n  const logId = requireText(body.log_id, 'log_id');\n  const authorId = requireText(author.id, 'author.id');\n  const name = requireText(author.name, 'author.name');\n  const email = requireText(author.email, 'author.email');\n  if (email && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) errors.push('author.email is not a valid email');\n  if (!Array.isArray(body.books)) errors.push('books must be an array');\n\n  const books = (Array.isArray(body.books) ? body.books : []).map((b, i) => {\n    const at = `books[${i}]`;\n    if (!b || typeof b !== 'object') { errors.push(`${at} must be an object`); return null; }\n    const num = (k) => {\n      const v = parseAmount(b[k]);\n      if (v === undefined) errors.push(`${at}.${k} is not a number`);\n      return v === undefined ? null : v;\n    };\n    const day = (k) => {\n      const v = parseDay(b[k]);\n      if (v === undefined) errors.push(`${at}.${k} is not a date`);\n      return v === undefined ? null : v;\n    };\n    const status = typeof b.status === 'string' ? b.status.trim() : '';\n    if (!b.title || String(b.title).trim() === '') errors.push(`${at}.title is required`);\n    if (!status) errors.push(`${at}.status is required`);\n    let isPublished = parseYesNo(b.is_published);\n    if (isPublished === undefined) { errors.push(`${at}.is_published must be yes/no`); isPublished = false; }\n    // The dataset's status text is the source of truth if Bubble omitted the flag.\n    if (b.is_published === undefined) isPublished = /^published/i.test(status);\n    const book = {\n      book_code: String(b.book_code || '').trim(),\n      title: String(b.title || '').trim(),\n      isbn: String(b.isbn || '').trim(),\n      genre: String(b.genre || '').trim(),\n      status,\n      is_published: isPublished,\n      publication_date: day('publication_date'),\n      mrp: num('mrp'),\n      royalty_per_copy: num('royalty_per_copy'),\n      copies_sold: num('copies_sold') || 0,\n      total_royalty_earned: num('total_royalty_earned') || 0,\n      royalty_paid: num('royalty_paid') || 0,\n      royalty_pending: num('royalty_pending') || 0,\n      last_payout_date: day('last_payout_date'),\n      available_on: String(b.available_on || '').split(',').map((p) => p.trim()).filter(Boolean),\n    };\n    if (Math.abs(book.total_royalty_earned - book.royalty_paid - book.royalty_pending) > 1) {\n      errors.push(`${at} (${book.title}): earned - paid != pending; refusing to email inconsistent figures`);\n    }\n    return book;\n  }).filter(Boolean);\n\n  const asOf = parseDay(body.as_of_date);\n  if (asOf === undefined) errors.push('as_of_date is not a date');\n\n  return {\n    ok: errors.length === 0,\n    errors,\n    payload: {\n      log_id: logId,\n      trigger_type: body.trigger_type === 'bulk' ? 'bulk' : 'single',\n      triggered_by: typeof body.triggered_by === 'string' ? body.triggered_by : '',\n      as_of_date: asOf || null,\n      author: {\n        id: authorId,\n        author_code: String(author.author_code || '').trim(),\n        name,\n        email,\n        city: String(author.city || '').trim(),\n      },\n      books,\n    },\n  };\n}\n\nfunction isoDay(date) {\n  return date ? date.toISOString().slice(0, 10) : null;\n}\n\nfunction humanDay(date) {\n  if (!date) return null;\n  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July',\n    'August', 'September', 'October', 'November', 'December'];\n  return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;\n}\n\nfunction formatINR(amount) {\n  const n = Math.round(Number(amount) || 0);\n  return '₹' + n.toLocaleString('en-IN');\n}\n\nfunction todayInIndia(now) {\n  const ist = new Date((now ? now.getTime() : Date.now()) + 330 * 60000);\n  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()));\n}\n\nfunction productionStage(statusText) {\n  const stages = ['Manuscript Received', 'Editing', 'Cover Design', 'Typesetting',\n    'Proofreading', 'ISBN Assignment', 'Printing', 'Distribution Setup', 'Published & Live'];\n  const lower = statusText.toLowerCase();\n  const idx = stages.findIndex((s) => lower.includes(s.toLowerCase()));\n  if (idx === -1) return { stage: statusText, step: null, of: stages.length, next: null };\n  return { stage: stages[idx], step: idx + 1, of: stages.length, next: stages[idx + 1] || null };\n}\n\nfunction royaltyStatus(book, today) {\n  if (!book.is_published) return 'n/a';\n  if (book.royalty_pending <= 0) return 'paid';\n  const days = (d) => Math.floor((today - d) / 86400000);\n  if (book.last_payout_date) return days(book.last_payout_date) > 90 ? 'overdue' : 'pending';\n  if (book.publication_date && days(book.publication_date) > 90) return 'overdue';\n  return 'pending';\n}\n\nfunction payoutWindow(today) {\n  const y = today.getUTCFullYear();\n  const q = Math.floor(today.getUTCMonth() / 3); // 0..3, current quarter\n  const quarterEnd = (year, qi) => new Date(Date.UTC(year, qi * 3 + 3, 0)); // last day of quarter\n  const addDays = (d, n) => new Date(d.getTime() + n * 86400000);\n  const lastClosedEnd = q === 0 ? quarterEnd(y - 1, 3) : quarterEnd(y, q - 1);\n  const lastDeadline = addDays(lastClosedEnd, 45);\n  const label = (d) => `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;\n  if (today <= lastDeadline) {\n    return { quarter_label: label(lastClosedEnd), quarter_end: lastClosedEnd, payout_by: lastDeadline, in_progress: true };\n  }\n  const currentEnd = quarterEnd(y, q);\n  return { quarter_label: label(currentEnd), quarter_end: currentEnd, payout_by: addDays(currentEnd, 45), in_progress: false };\n}\n\nfunction buildFacts(payload, now, config) {\n  const today = payload.as_of_date || todayInIndia(now);\n  const threshold = config.payout_threshold_inr;\n  const books = payload.books.map((b) => {\n    const status = royaltyStatus(b, today);\n    const base = { title: b.title, isbn: b.isbn, genre: b.genre, royalty_status: status };\n    if (!b.is_published) {\n      return { ...base, in_production: true, production: productionStage(b.status) };\n    }\n    return {\n      ...base,\n      in_production: false,\n      published_on: humanDay(b.publication_date),\n      mrp: b.mrp === null ? null : formatINR(b.mrp),\n      royalty_per_copy: b.royalty_per_copy === null ? null : formatINR(b.royalty_per_copy),\n      copies_sold: b.copies_sold.toLocaleString('en-IN'),\n      earned: formatINR(b.total_royalty_earned),\n      paid: formatINR(b.royalty_paid),\n      pending: formatINR(b.royalty_pending),\n      last_payout: b.last_payout_date ? humanDay(b.last_payout_date) : 'No payout yet',\n      available_on: b.available_on,\n    };\n  });\n  const sum = (k) => payload.books.reduce((acc, b) => acc + (b[k] || 0), 0);\n  const totals = {\n    earned: sum('total_royalty_earned'),\n    paid: sum('royalty_paid'),\n    pending: sum('royalty_pending'),\n    copies: sum('copies_sold'),\n  };\n  const published = books.filter((b) => !b.in_production);\n  const window = payoutWindow(today);\n  const anyOverdue = books.some((b) => b.royalty_status === 'overdue');\n  const belowThreshold = totals.pending > 0 && totals.pending < threshold;\n\n  // One scenario label drives which paragraph the model writes, so edge\n  // cases are decided by code rather than left to the model's judgement.\n  let scenario;\n  if (published.length === 0) scenario = 'no_published_books';\n  else if (totals.pending === 0) scenario = 'all_paid';\n  else if (belowThreshold) scenario = 'below_threshold';\n  else if (anyOverdue) scenario = 'overdue';\n  else scenario = 'pending_in_cycle';\n\n  const guidance = {\n    no_published_books: 'The author has no published books yet, so there are no royalties. Focus on the production update and what happens next.',\n    all_paid: 'All royalties are paid up. Acknowledge this positively and thank them. Do not mention quarters, payout cycles or upcoming payouts, and do not say which period the last payout covered.',\n    below_threshold: `The total pending amount (${formatINR(totals.pending)}) is below the ${formatINR(threshold)} minimum payout threshold, so it rolls over to the next quarter and will be paid once the accumulated balance reaches ${formatINR(threshold)}. Explain this plainly; it is policy, not a delay.`,\n    overdue: `Some pending royalties are older than our normal cycle (see books with royalty_status \"overdue\"). Own this directly and apologise without corporate deflection. Then state the commitment exactly as given in follow_up_commitment, and mention the current cycle: ${window.quarter_label} royalties are due by ${humanDay(window.payout_by)}.`,\n    pending_in_cycle: `The pending amount is within the normal cycle. Explain that royalties are calculated quarterly and paid within 45 days of the quarter ending, so the ${window.quarter_label} payout is due by ${humanDay(window.payout_by)}, by bank transfer to the account linked in their dashboard.`,\n  }[scenario];\n\n  return {\n    author_first_name: payload.author.name.split(/\\s+/)[0],\n    author_name: payload.author.name,\n    as_of: humanDay(today),\n    scenario,\n    scenario_guidance: guidance,\n    follow_up_commitment: anyOverdue && scenario === 'overdue' ? config.overdue_commitment : null,\n    totals: {\n      earned: formatINR(totals.earned),\n      paid: formatINR(totals.paid),\n      pending: formatINR(totals.pending),\n      copies_sold: totals.copies.toLocaleString('en-IN'),\n    },\n    // Only when something is pending: given to an all-paid author, the model\n    // turned \"Q3 2026 due by …\" into a false \"Q3 2026 has been paid\".\n    payout_cycle: totals.pending > 0 ? {\n      quarter: window.quarter_label,\n      quarter_end: humanDay(window.quarter_end),\n      payout_due_by: humanDay(window.payout_by),\n      minimum_payout: formatINR(threshold),\n    } : null,\n    published_books: published,\n    books_in_production: books.filter((b) => b.in_production),\n    support_email: config.support_email,\n    // Raw numbers for Bubble/n8n bookkeeping; not shown to the model.\n    _raw: { totals, scenario, any_overdue: anyOverdue, today: isoDay(today) },\n  };\n}\n\n// ---- node logic ----\nconst cfg = $('Config').first().json;\n// Re-parse the original body: typed values (Dates) do not survive between nodes.\nconst v = validatePayload($('Bubble Webhook').first().json.body);\nconst facts = buildFacts(v.payload, new Date(), {\n  payout_threshold_inr: Number(cfg.payout_threshold_inr),\n  support_email: cfg.support_email,\n  overdue_commitment: cfg.overdue_commitment,\n});\nreturn [{ json: { log_id: v.payload.log_id, trigger_type: v.payload.trigger_type, author: v.payload.author, facts } }];\n"
+      },
+      "id": "3037b35a-f4d9-4296-aee6-8a33264d09c2",
+      "name": "Compute Royalty Facts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\nconst SYSTEM_PROMPT = \"You write royalty summary emails to authors on behalf of BookLeaf Publishing, a self-publishing company in India and the US. Each email is sent automatically by the BookLeaf operations team, so it must be accurate enough to send without a human editing it.\\n\\n<bookleaf_policy>\\nRoyalties\\n- Authors receive 80% of the net profit per book (net profit = MRP minus printing cost, platform commission and shipping); BookLeaf keeps 20%.\\n- Royalties are calculated quarterly and paid within 45 days of the quarter ending, by bank transfer to the account linked in the author's BookLeaf dashboard.\\n- Minimum payout is Rs. 1,000. Smaller balances roll over to the next quarter.\\n- Authors can see a per-platform royalty breakdown in their dashboard.\\n\\nProduction stages, in order\\nManuscript Received -> Editing (if opted) -> Cover Design -> Typesetting -> Proofreading -> ISBN Assignment -> Printing -> Distribution Setup -> Published & Live.\\nAuthors get an email at each stage. Cover Design often waits on the author's approval; Proofreading can take revision rounds. New listings go live 7-10 business days after publication completes.\\n</bookleaf_policy>\\n\\n<tone>\\n- Warm, empathetic and professional. Authors are BookLeaf's partners, not customers to be managed.\\n- Be specific: use the actual figures, dates and statuses you are given instead of vague reassurance.\\n- If a delay is BookLeaf's fault, own it plainly. No corporate deflection, no blaming \\\"systems\\\".\\n- When something needs follow-up, give the clear timeline you are given, never an open-ended promise.\\n- End with a clear next step and a warm sign-off from \\\"The BookLeaf Author Success Team\\\".\\n- Plain, natural English. No marketing hype, no emoji, no exclamation-mark overload.\\n- Write as the team (\\\"we\\\"), never \\\"I\\\".\\n</tone>\\n\\n<rules>\\n1. Use only the facts in the <author_facts> block. Never invent figures, dates, platforms, reasons for delays, or promises. If a fact is not given, leave it out. Never predict when money will arrive beyond the exact dates and commitment in the facts (no \\\"well before\\\", \\\"soon\\\", \\\"shortly\\\").\\n2. Copy every amount exactly as written in the facts (for example \\\"₹11,970\\\"). Do not add, subtract, round or convert amounts, and do not write any amount that is not in the facts.\\n3. Greet the author by first name.\\n4. For each published book, give a short summary: copies sold, royalty earned, paid, pending and the last payout date. A compact bulleted list per book is fine.\\n5. Give a clear overall breakdown that writes out all three totals, even when one is ₹0: total earned, total paid, total pending.\\n6. Write the payout paragraph by following scenario_guidance exactly. It already reflects BookLeaf policy for this author's situation.\\n7. For every book in books_in_production, give a brief, encouraging status update: the current stage, its position in the pipeline (e.g. \\\"stage 3 of 9\\\") and the next stage. Do not promise a publication date.\\n8. Close with the next step: they can view the full breakdown in their BookLeaf dashboard, and reply to this email or write to the support address given for any questions.\\n9. Plain text only: no Markdown headings, bold or tables. Short paragraphs; \\\"- \\\" bullets are allowed. Aim for 180-320 words.\\n10. The subject line is specific and calm, e.g. \\\"Your BookLeaf royalty summary - ₹3,570 pending\\\" or \\\"Your BookLeaf royalty summary - all paid up\\\". Use an amount in the subject only if it is total pending from the facts.\\n</rules>\\n\\nReturn JSON with \\\"subject\\\" and \\\"body\\\".\";\nconst OUTPUT_SCHEMA = {\n  \"type\": \"object\",\n  \"properties\": {\n    \"subject\": {\n      \"type\": \"string\",\n      \"description\": \"Email subject line\"\n    },\n    \"body\": {\n      \"type\": \"string\",\n      \"description\": \"Plain-text email body, greeting to sign-off\"\n    }\n  },\n  \"required\": [\n    \"subject\",\n    \"body\"\n  ],\n  \"additionalProperties\": false\n};\n\n\n\nfunction buildUserMessage(facts) {\n  const visible = { ...facts };\n  delete visible._raw;\n  return `Write the royalty summary email for this author.\\n\\n<author_facts>\\n${JSON.stringify(visible, null, 2)}\\n</author_facts>`;\n}\n\nfunction buildRequest(facts, model) {\n  const legacy = /claude-(haiku|sonnet|opus)-4-[0-6]\\b|claude-3/.test(model);\n  const body = {\n    anthropic_version: legacy ? 'bedrock-2023-05-31' : '2026-10-21',\n    max_tokens: 2000,\n    system: SYSTEM_PROMPT,\n    messages: [{ role: 'user', content: buildUserMessage(facts) }],\n    output_config: { format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },\n  };\n  if (legacy) body.thinking = { type: 'disabled' };\n  else body.output_config.effort = 'low';\n  return body;\n}\n\n// ---- node logic ----\nconst cfg = $('Config').first().json;\nconst ctx = $input.first().json;\nreturn [{ json: { ...ctx, request: buildRequest(ctx.facts, cfg.ai_model) } }];\n"
+      },
+      "id": "fedfb457-b7d5-461c-a9ed-bd0dadc27c1e",
+      "name": "Build AI Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.bedrock_endpoint }}/model/{{ encodeURIComponent($('Config').first().json.ai_model) }}/invoke",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "aws",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "id": "69da6dcb-475d-4383-a86b-0d0e58adacee",
+      "name": "Claude on Bedrock: Write Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        200
+      ],
+      "credentials": {
+        "aws": {
+          "id": "awsBedrock",
+          "name": "AWS Bedrock (IAM access key)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\nfunction checkEmail(email, facts) {\n  const problems = [];\n  if (!email || typeof email.subject !== 'string' || typeof email.body !== 'string') {\n    return ['Model did not return {subject, body}'];\n  }\n  const subject = email.subject.trim();\n  const body = email.body;\n  if (subject.length < 5 || subject.length > 140) problems.push('Subject length out of range');\n  if (body.trim().length < 200) problems.push('Body is too short');\n  if (!body.includes(facts.author_first_name)) problems.push('Greeting does not use the author\\'s name');\n  // A figure counts only when written as an amount (\"₹3,570\", \"₹ 3,570\", \"Rs. 3,570\").\n  // Bare digits don't count: \"0\" would match almost any text.\n  const mentions = (inr) => [inr, inr.replace('₹', '₹ '), inr.replace('₹', 'Rs. '), inr.replace('₹', 'Rs ')]\n    .some((form) => body.includes(form));\n  if (facts.published_books.length > 0) {\n    for (const k of ['earned', 'paid', 'pending']) {\n      if (!mentions(facts.totals[k])) problems.push(`Total ${k} (${facts.totals[k]}) is missing`);\n    }\n  }\n  // Titles match whatever quote or dash style the model used: the data has\n  // \"Durga’s Daughters\" (curly) and the model may write \"Durga's\" (straight).\n  const fold = (s) => s.replace(/[‘’ʼ`]/g, \"'\").replace(/[“”]/g, '\"').replace(/[‐-―]/g, '-')\n    .replace(/\\s+/g, ' ').toLowerCase();\n  const foldedBody = fold(body);\n  for (const b of facts.published_books) {\n    if (!foldedBody.includes(fold(b.title))) problems.push(`Published book \"${b.title}\" is not mentioned`);\n  }\n  for (const b of facts.books_in_production) {\n    if (!foldedBody.includes(fold(b.title))) problems.push(`In-production book \"${b.title}\" is not mentioned`);\n  }\n  // Any rupee figure the model wrote must be one we gave it.\n  const allowed = new Set();\n  const collect = (v) => {\n    if (typeof v === 'string' && v.startsWith('₹')) allowed.add(v.replace(/[₹,]/g, ''));\n    else if (v && typeof v === 'object') Object.values(v).forEach(collect);\n  };\n  collect(facts);\n  const written = body.match(/₹\\s?[\\d,]+/g) || [];\n  for (const w of written) {\n    const digits = w.replace(/[₹,\\s]/g, '');\n    if (!allowed.has(digits)) problems.push(`Unexpected amount ${w} (not in the provided figures)`);\n  }\n  if (/\\[[A-Z _]+\\]|\\{\\{|lorem ipsum/i.test(body)) problems.push('Body contains a placeholder');\n  return problems;\n}\n\n// ---- node logic ----\nconst res = $input.first().json;\nconst ctx = $('Build AI Request').first().json;\nconst problems = [];\nlet email = null;\nif (res.stop_reason === 'refusal') problems.push('Model declined the request');\nelse if (res.stop_reason === 'max_tokens') problems.push('Model output was cut off (max_tokens)');\nelse {\n  const block = (res.content || []).find((b) => b.type === 'text');\n  try { email = JSON.parse(block.text); } catch (e) { problems.push('Model output was not valid JSON'); }\n}\nif (email) problems.push(...checkEmail(email, ctx.facts));\nreturn [{\n  json: {\n    ok: problems.length === 0,\n    problems,\n    email,\n    ai: { model: res.model || null, input_tokens: res.usage ? res.usage.input_tokens : null, output_tokens: res.usage ? res.usage.output_tokens : null },\n    log_id: ctx.log_id,\n    author: ctx.author,\n  },\n}];\n"
+      },
+      "id": "9d7045ba-6328-4440-a7db-f38a8df3b989",
+      "name": "Check AI Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "5d6d7849-ba5b-43e7-aabb-b57399415c20",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8570223b-4112-4641-a7f4-839acd5c2c7c",
+      "name": "Email Passes Checks?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\nfunction toHtml(text) {\n  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  const paras = text.trim().split(/\\n{2,}/).map((p) => {\n    const lines = p.split('\\n');\n    if (lines.every((l) => /^\\s*[-•*]\\s+/.test(l))) {\n      return '<ul>' + lines.map((l) => `<li>${esc(l.replace(/^\\s*[-•*]\\s+/, ''))}</li>`).join('') + '</ul>';\n    }\n    return `<p>${lines.map(esc).join('<br>')}</p>`;\n  });\n  return '<div style=\"font-family:Georgia,serif;font-size:15px;line-height:1.55;color:#222;max-width:620px\">'\n    + paras.join('\\n') + '</div>';\n}\n\n// ---- node logic ----\nconst cfg = $('Config').first().json;\nconst r = $input.first().json;\nconst mode = String(cfg.email_mode || 'off').toLowerCase();\nconst validAddress = (a) => /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(a || '') && !/example\\.com$/i.test(a);\nlet send = false; let to = null; let skip_reason = null; let subject = r.email.subject;\nif (mode === 'live') { send = true; to = r.author.email; }\nelse if (mode === 'redirect') {\n  if (validAddress(cfg.email_redirect_to)) {\n    send = true; to = cfg.email_redirect_to; subject = '[Test - for ' + r.author.email + '] ' + subject;\n  } else skip_reason = 'email_mode is \"redirect\" but email_redirect_to is not set in Config';\n} else skip_reason = 'Email sending is off (email_mode = off); the summary is logged in Bubble only.';\nreturn [{ json: { ...r, send, to, subject, html: toHtml(r.email.body), skip_reason } }];\n"
+      },
+      "id": "b749dfaf-c108-4a81-a28b-1b6f34b48e7b",
+      "name": "Prepare Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "1f20f2c0-2489-44a4-aa5e-f20c9966a01c",
+              "leftValue": "={{ $json.send }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "addb8c65-96b3-4730-a43e-96e94a401360",
+      "name": "Send Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Config').first().json.email_from }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.email.body }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "084a30ff-29fa-4afe-a89f-35c90c202113",
+      "name": "Send Email (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2860,
+        -20
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "bookleafSmtp",
+          "name": "BookLeaf SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\n\n\n// ---- node logic ----\nconst prep = $('Prepare Email').first().json;\nconst inp = $input.first().json;\nconst errText = (e) => (typeof e === 'string' ? e : (e && (e.message || e.description)) || JSON.stringify(e));\nlet email_status; let email_detail;\nif (!prep.send) { email_status = 'Not sent'; email_detail = prep.skip_reason; }\nelse if (inp.error) { email_status = 'Failed'; email_detail = 'SMTP error: ' + errText(inp.error); }\nelse { email_status = 'Sent'; email_detail = 'Sent to ' + prep.to; }\nreturn [{\n  json: {\n    status: 'Success',\n    log_id: prep.log_id,\n    author_id: prep.author.id,\n    email_subject: prep.email.subject,\n    email_body: prep.email.body,\n    email_status,\n    email_detail,\n    error_message: '',\n    ai: prep.ai,\n  },\n}];\n"
+      },
+      "id": "aea89905-e339-4071-a9fb-eef35f51bc70",
+      "name": "Success Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\n\n\n// ---- node logic ----\nconst inp = $input.first().json;\nconst ctx = $('Build AI Request').first().json;\nconst errText = (e) => (typeof e === 'string' ? e : (e && (e.message || e.description)) || JSON.stringify(e));\nconst reason = Array.isArray(inp.problems)\n  ? 'AI email rejected by checks: ' + inp.problems.join('; ')\n  : 'AI API call failed after 3 attempts: ' + errText(inp.error || inp);\nreturn [{\n  json: {\n    status: 'Failed',\n    log_id: ctx.log_id,\n    author_id: ctx.author.id,\n    email_subject: '',\n    email_body: '',\n    email_status: 'Not sent',\n    email_detail: '',\n    error_message: reason.slice(0, 1000),\n  },\n}];\n"
+      },
+      "id": "931f5c3d-851e-4e83-a0b4-4fdf22c46faa",
+      "name": "Failure Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\n\n\n// ---- node logic ----\nconst v = $input.first().json;\nreturn [{\n  json: {\n    status: 'Failed',\n    log_id: v.log_id,\n    author_id: v.author_id,\n    email_subject: '', email_body: '', email_status: 'Not sent', email_detail: '',\n    error_message: ('Invalid request from Bubble: ' + v.errors.join('; ')).slice(0, 1000),\n  },\n}];\n"
+      },
+      "id": "625f17db-cefd-4dd9-a66b-45a11e68ca4a",
+      "name": "Invalid Payload Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\n\n\n// ---- node logic ----\nconst v = $input.first().json;\nreturn [{\n  json: {\n    status: 'Skipped',\n    log_id: v.log_id,\n    author_id: v.author_id,\n    email_subject: '', email_body: '', email_status: 'Not sent', email_detail: '',\n    error_message: 'Duplicate trigger ignored: ' + v.duplicate_reason,\n    original_log_id: v.original_log_id,\n  },\n}];\n"
+      },
+      "id": "d3a8d93b-21c8-419c-a400-96ceb0858f43",
+      "name": "Duplicate Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\nfunction releaseLock(state, authorId, logId) {\n  if (state.locks && state.locks[authorId] && state.locks[authorId].log_id === logId) {\n    delete state.locks[authorId];\n  }\n}\n\n// ---- node logic ----\nconst cfg = $('Config').first().json;\nconst r = $input.first().json;\nconst completed_at = new Date().toISOString();\n// A failed run must not block a retry for the rest of the dedupe window.\nif (r.status === 'Failed' && r.author_id) releaseLock($getWorkflowStaticData('global'), r.author_id, r.log_id);\nconst response = {\n  status: r.status,\n  log_id: r.log_id,\n  completed_at,\n  email_subject: r.email_subject,\n  email_body: r.email_body,\n  email_status: r.email_status,\n  email_detail: r.email_detail,\n  error_message: r.error_message,\n  n8n_execution_id: String($execution.id),\n  ai_model: r.ai ? r.ai.model : null,\n};\n// Field names match the NotificationLog data type in Bubble.\nconst callback = {\n  status: r.status,\n  completed_at,\n  email_subject: r.email_subject,\n  email_body: r.email_body,\n  email_status: r.email_status,\n  email_detail: r.email_detail,\n  error_message: r.error_message,\n  n8n_execution_id: String($execution.id),\n};\nconst callbackEnabled = String(cfg.bubble_callback_enabled).toLowerCase() === 'true' && !!r.log_id;\nreturn [{ json: { response, callback, callback_enabled: callbackEnabled } }];\n"
+      },
+      "id": "ca8c6adf-78d3-4a49-a32d-091789c62730",
+      "name": "Finalize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "205c61af-52d3-4200-ae2d-84e7fadc8692",
+              "leftValue": "={{ $json.callback_enabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "22eedd23-6cdc-4eb2-adb3-494faac7b4b0",
+      "name": "Callback Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config').first().json.bubble_api_base }}/obj/notificationlog/{{ $json.response.log_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.callback) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "cdaec738-4fe5-41e8-a720-7ef69a881e59",
+      "name": "Callback: Update Bubble Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3740,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bubbleApiToken",
+          "name": "Bubble API Token (Authorization: Bearer)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generated from n8n/src/*.js by build_workflow.mjs - edit there, then rebuild.\n\n\n\n// ---- node logic ----\nconst fin = $('Finalize Result').first().json;\nconst inp = $input.first().json;\nconst errText = (e) => (typeof e === 'string' ? e : (e && (e.message || e.description)) || JSON.stringify(e));\nconst callback_status = inp.error ? 'Failed: ' + errText(inp.error) : 'Delivered';\nreturn [{ json: { ...fin, response: { ...fin.response, callback_status } } }];\n"
+      },
+      "id": "30ee7150-4f60-49d1-a02e-8ac3bd1e9cd4",
+      "name": "Note Callback Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.response) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "915694be-3f5d-4acc-af8f-7f32b484c58d",
+      "name": "Respond to Bubble",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4180,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Bubble Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Payload Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payload Valid?": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Guard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Payload Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Guard": {
+      "main": [
+        [
+          {
+            "node": "Already Triggered?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Triggered?": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compute Royalty Facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Royalty Facts": {
+      "main": [
+        [
+          {
+            "node": "Build AI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Request": {
+      "main": [
+        [
+          {
+            "node": "Claude on Bedrock: Write Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude on Bedrock: Write Email": {
+      "main": [
+        [
+          {
+            "node": "Check AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failure Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check AI Output": {
+      "main": [
+        [
+          {
+            "node": "Email Passes Checks?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Passes Checks?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failure Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email?": {
+      "main": [
+        [
+          {
+            "node": "Send Email (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Success Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Result": {
+      "main": [
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Result": {
+      "main": [
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Payload Result": {
+      "main": [
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Result": {
+      "main": [
+        [
+          {
+            "node": "Finalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Result": {
+      "main": [
+        [
+          {
+            "node": "Callback Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Callback: Update Bubble Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Bubble",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: Update Bubble Log": {
+      "main": [
+        [
+          {
+            "node": "Note Callback Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Note Callback Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Note Callback Outcome": {
+      "main": [
+        [
+          {
+            "node": "Respond to Bubble",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "executionTimeout": 150
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

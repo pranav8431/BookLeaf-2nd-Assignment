@@ -1,0 +1,31 @@
+{
+  "log_id": "test-log-AUTH003",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH003",
+    "author_code": "AUTH003",
+    "name": "Ananya Reddy",
+    "email": "ananya.reddy@email.com",
+    "city": "Hyderabad"
+  },
+  "books": [
+    {
+      "book_code": "BK005",
+      "title": "Between Two Temples",
+      "isbn": "978-93-5XXXX-05-9",
+      "genre": "Historical Fiction",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-07-05",
+      "mrp": "425",
+      "royalty_per_copy": "38",
+      "copies_sold": "67",
+      "total_royalty_earned": "2546",
+      "royalty_paid": "0",
+      "royalty_pending": "2546",
+      "last_payout_date": "",
+      "available_on": "Amazon India, BookLeaf Store"
+    }
+  ]
+}

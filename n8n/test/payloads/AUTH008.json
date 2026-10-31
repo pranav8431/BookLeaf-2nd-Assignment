@@ -1,0 +1,31 @@
+{
+  "log_id": "test-log-AUTH008",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH008",
+    "author_code": "AUTH008",
+    "name": "Farhan Sheikh",
+    "email": "farhan.sheikh@email.com",
+    "city": "Lucknow"
+  },
+  "books": [
+    {
+      "book_code": "BK014",
+      "title": "Ghazal of the Forgotten",
+      "isbn": "978-93-5XXXX-14-1",
+      "genre": "Poetry / Urdu Literature",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-01-26",
+      "mrp": "250",
+      "royalty_per_copy": "20",
+      "copies_sold": "156",
+      "total_royalty_earned": "3120",
+      "royalty_paid": "3120",
+      "royalty_pending": "0",
+      "last_payout_date": "2025-12-01",
+      "available_on": "Amazon India, BookLeaf Store"
+    }
+  ]
+}

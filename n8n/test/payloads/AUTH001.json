@@ -1,0 +1,48 @@
+{
+  "log_id": "test-log-AUTH001",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH001",
+    "author_code": "AUTH001",
+    "name": "Priya Sharma",
+    "email": "priya.sharma@email.com",
+    "city": "Mumbai"
+  },
+  "books": [
+    {
+      "book_code": "BK001",
+      "title": "Whispers of the Ganges",
+      "isbn": "978-93-5XXXX-01-1",
+      "genre": "Literary Fiction",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2023-06-20",
+      "mrp": "399",
+      "royalty_per_copy": "35",
+      "copies_sold": "342",
+      "total_royalty_earned": "11970",
+      "royalty_paid": "8400",
+      "royalty_pending": "3570",
+      "last_payout_date": "2025-10-15",
+      "available_on": "Amazon India, Flipkart, BookLeaf Store"
+    },
+    {
+      "book_code": "BK002",
+      "title": "The Saffron Diaries",
+      "isbn": "978-93-5XXXX-02-8",
+      "genre": "Non-Fiction / Memoir",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-01-10",
+      "mrp": "450",
+      "royalty_per_copy": "42",
+      "copies_sold": "189",
+      "total_royalty_earned": "7938",
+      "royalty_paid": "7938",
+      "royalty_pending": "0",
+      "last_payout_date": "2025-12-01",
+      "available_on": "Amazon India, BookLeaf Store"
+    }
+  ]
+}

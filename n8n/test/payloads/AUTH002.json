@@ -1,0 +1,48 @@
+{
+  "log_id": "test-log-AUTH002",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH002",
+    "author_code": "AUTH002",
+    "name": "Rohit Kapoor",
+    "email": "rohit.kapoor@email.com",
+    "city": "Delhi"
+  },
+  "books": [
+    {
+      "book_code": "BK003",
+      "title": "Code & Karma",
+      "isbn": "978-93-5XXXX-03-5",
+      "genre": "Self-Help / Technology",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2023-02-14",
+      "mrp": "350",
+      "royalty_per_copy": "30",
+      "copies_sold": "876",
+      "total_royalty_earned": "26280",
+      "royalty_paid": "21000",
+      "royalty_pending": "5280",
+      "last_payout_date": "2025-09-01",
+      "available_on": "Amazon India, Flipkart, Amazon US, BookLeaf Store"
+    },
+    {
+      "book_code": "BK004",
+      "title": "Startup Sutra",
+      "isbn": "978-93-5XXXX-04-2",
+      "genre": "Business / Entrepreneurship",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-05-22",
+      "mrp": "499",
+      "royalty_per_copy": "48",
+      "copies_sold": "1203",
+      "total_royalty_earned": "57744",
+      "royalty_paid": "50000",
+      "royalty_pending": "7744",
+      "last_payout_date": "2025-11-15",
+      "available_on": "Amazon India, Flipkart, Amazon US, Amazon UK, BookLeaf Store"
+    }
+  ]
+}

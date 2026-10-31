@@ -1,0 +1,31 @@
+{
+  "log_id": "test-log-AUTH006",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH006",
+    "author_code": "AUTH006",
+    "name": "Arjun Malhotra",
+    "email": "arjun.malhotra@email.com",
+    "city": "Chandigarh"
+  },
+  "books": [
+    {
+      "book_code": "BK010",
+      "title": "Turban Tales",
+      "isbn": "978-93-5XXXX-10-3",
+      "genre": "Humor / Essays",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-09-10",
+      "mrp": "325",
+      "royalty_per_copy": "28",
+      "copies_sold": "88",
+      "total_royalty_earned": "2464",
+      "royalty_paid": "0",
+      "royalty_pending": "2464",
+      "last_payout_date": "",
+      "available_on": "Amazon India, BookLeaf Store"
+    }
+  ]
+}

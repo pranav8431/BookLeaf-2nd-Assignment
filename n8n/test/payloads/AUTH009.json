@@ -1,0 +1,48 @@
+{
+  "log_id": "test-log-AUTH009",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH009",
+    "author_code": "AUTH009",
+    "name": "Kavita Deshmukh",
+    "email": "kavita.deshmukh@email.com",
+    "city": "Nagpur"
+  },
+  "books": [
+    {
+      "book_code": "BK015",
+      "title": "Raising Roots",
+      "isbn": "978-93-5XXXX-15-8",
+      "genre": "Parenting / Non-Fiction",
+      "status": "In Production - Typesetting",
+      "is_published": "no",
+      "publication_date": "",
+      "mrp": "",
+      "royalty_per_copy": "",
+      "copies_sold": "0",
+      "total_royalty_earned": "0",
+      "royalty_paid": "0",
+      "royalty_pending": "0",
+      "last_payout_date": "",
+      "available_on": ""
+    },
+    {
+      "book_code": "BK016",
+      "title": "The Nagpur Notebooks",
+      "isbn": "978-93-5XXXX-16-5",
+      "genre": "Essays / Memoir",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-11-05",
+      "mrp": "299",
+      "royalty_per_copy": "25",
+      "copies_sold": "34",
+      "total_royalty_earned": "850",
+      "royalty_paid": "0",
+      "royalty_pending": "850",
+      "last_payout_date": "",
+      "available_on": "Amazon India, BookLeaf Store"
+    }
+  ]
+}

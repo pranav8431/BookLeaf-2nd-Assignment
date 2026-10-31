@@ -1,0 +1,48 @@
+{
+  "log_id": "test-log-AUTH004",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH004",
+    "author_code": "AUTH004",
+    "name": "Vikram Joshi",
+    "email": "vikram.joshi@email.com",
+    "city": "Pune"
+  },
+  "books": [
+    {
+      "book_code": "BK006",
+      "title": "Debugging Life",
+      "isbn": "978-93-5XXXX-06-6",
+      "genre": "Self-Help",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2023-11-30",
+      "mrp": "299",
+      "royalty_per_copy": "25",
+      "copies_sold": "534",
+      "total_royalty_earned": "13350",
+      "royalty_paid": "10000",
+      "royalty_pending": "3350",
+      "last_payout_date": "2025-08-20",
+      "available_on": "Amazon India, Flipkart, BookLeaf Store"
+    },
+    {
+      "book_code": "BK007",
+      "title": "The Last Monsoon",
+      "isbn": "978-93-5XXXX-07-3",
+      "genre": "Poetry",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-08-15",
+      "mrp": "199",
+      "royalty_per_copy": "15",
+      "copies_sold": "123",
+      "total_royalty_earned": "1845",
+      "royalty_paid": "1845",
+      "royalty_pending": "0",
+      "last_payout_date": "2025-12-01",
+      "available_on": "Amazon India, BookLeaf Store"
+    }
+  ]
+}

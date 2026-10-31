@@ -1,0 +1,13 @@
+payout_code,book_code,author_code,amount,payout_date,note
+PO-BK001-001,BK001,AUTH001,8400,2025-10-15,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK002-001,BK002,AUTH001,7938,2025-12-01,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK003-001,BK003,AUTH002,21000,2025-09-01,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK004-001,BK004,AUTH002,50000,2025-11-15,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK006-001,BK006,AUTH004,10000,2025-08-20,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK007-001,BK007,AUTH004,1845,2025-12-01,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK008-001,BK008,AUTH005,14240,2025-12-01,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK009-001,BK009,AUTH005,8000,2025-10-15,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK011-001,BK011,AUTH007,35000,2025-11-15,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK012-001,BK012,AUTH007,18000,2025-10-15,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK014-001,BK014,AUTH008,3120,2025-12-01,Opening balance: total paid to date (source data holds cumulative figures only)
+PO-BK017-001,BK017,AUTH010,25000,2025-11-15,Opening balance: total paid to date (source data holds cumulative figures only)

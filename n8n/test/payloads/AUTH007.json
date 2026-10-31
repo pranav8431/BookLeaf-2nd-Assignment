@@ -1,0 +1,65 @@
+{
+  "log_id": "test-log-AUTH007",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH007",
+    "author_code": "AUTH007",
+    "name": "Sneha Kulkarni",
+    "email": "sneha.kulkarni@email.com",
+    "city": "Bangalore"
+  },
+  "books": [
+    {
+      "book_code": "BK011",
+      "title": "The Algorithm of Love",
+      "isbn": "978-93-5XXXX-11-0",
+      "genre": "Romance",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2022-12-25",
+      "mrp": "299",
+      "royalty_per_copy": "25",
+      "copies_sold": "1567",
+      "total_royalty_earned": "39175",
+      "royalty_paid": "35000",
+      "royalty_pending": "4175",
+      "last_payout_date": "2025-11-15",
+      "available_on": "Amazon India, Flipkart, Amazon US, BookLeaf Store"
+    },
+    {
+      "book_code": "BK012",
+      "title": "Ctrl+Alt+Delete My Ex",
+      "isbn": "978-93-5XXXX-12-7",
+      "genre": "Romance / Humor",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2024-02-14",
+      "mrp": "350",
+      "royalty_per_copy": "30",
+      "copies_sold": "723",
+      "total_royalty_earned": "21690",
+      "royalty_paid": "18000",
+      "royalty_pending": "3690",
+      "last_payout_date": "2025-10-15",
+      "available_on": "Amazon India, Flipkart, BookLeaf Store"
+    },
+    {
+      "book_code": "BK013",
+      "title": "Midnight in Mysore",
+      "isbn": "978-93-5XXXX-13-4",
+      "genre": "Thriller",
+      "status": "In Production - Cover Design",
+      "is_published": "no",
+      "publication_date": "",
+      "mrp": "",
+      "royalty_per_copy": "",
+      "copies_sold": "0",
+      "total_royalty_earned": "0",
+      "royalty_paid": "0",
+      "royalty_pending": "0",
+      "last_payout_date": "",
+      "available_on": ""
+    }
+  ]
+}

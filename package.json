@@ -1,0 +1,13 @@
+{
+  "name": "bookleaf-royalty-automation",
+  "private": true,
+  "description": "BookLeaf Assignment 2: n8n workflow, Bubble import data and tests for the Author Royalty Dashboard",
+  "scripts": {
+    "data": "node scripts/generate_data.mjs",
+    "build": "node n8n/build_workflow.mjs",
+    "test": "node --test n8n/test/unit.test.mjs",
+    "test:e2e": "bash n8n/test/run_e2e.sh",
+    "try-webhook": "node n8n/test/try_webhook.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

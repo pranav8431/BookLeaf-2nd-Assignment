@@ -1,0 +1,48 @@
+{
+  "log_id": "test-log-AUTH010",
+  "trigger_type": "single",
+  "triggered_by": "admin@bookleaf.test",
+  "author": {
+    "id": "bubble-AUTH010",
+    "author_code": "AUTH010",
+    "name": "Diya Chatterjee",
+    "email": "diya.chatterjee@email.com",
+    "city": "Kolkata"
+  },
+  "books": [
+    {
+      "book_code": "BK017",
+      "title": "Durga’s Daughters",
+      "isbn": "978-93-5XXXX-17-2",
+      "genre": "Literary Fiction",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2023-10-15",
+      "mrp": "475",
+      "royalty_per_copy": "45",
+      "copies_sold": "612",
+      "total_royalty_earned": "27540",
+      "royalty_paid": "25000",
+      "royalty_pending": "2540",
+      "last_payout_date": "2025-11-15",
+      "available_on": "Amazon India, Flipkart, Amazon US, BookLeaf Store"
+    },
+    {
+      "book_code": "BK018",
+      "title": "Howrah Nights",
+      "isbn": "978-93-5XXXX-18-9",
+      "genre": "Crime / Thriller",
+      "status": "Published & Live",
+      "is_published": "yes",
+      "publication_date": "2025-01-20",
+      "mrp": "399",
+      "royalty_per_copy": "35",
+      "copies_sold": "45",
+      "total_royalty_earned": "1575",
+      "royalty_paid": "0",
+      "royalty_pending": "1575",
+      "last_payout_date": "",
+      "available_on": "Amazon India, BookLeaf Store"
+    }
+  ]
+}
