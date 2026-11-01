@@ -2,7 +2,7 @@
 
 ## Where things stand (31 Oct 2026)
 
-Parts A–E are done. The Bubble app was built with Bubble's editor tooling, so Part D below is the manual route, kept for reference. The [build guide](docs/BUBBLE_BUILD_GUIDE.md#how-the-deployed-app-differs-from-this-guide) lists where the deployed app differs.
+Parts A–E are done. Part D below is kept for reference. The [build guide](docs/BUBBLE_BUILD_GUIDE.md#how-the-deployed-app-differs-from-this-guide) lists where the deployed app differs.
 
 - **Done and tested live:**
   - logins for admin, Priya and Rohit
@@ -13,7 +13,7 @@ Parts A–E are done. The Bubble app was built with Bubble's editor tooling, so 
   - n8n is published and the export file matches it
 - **Left for you:**
   - [ ] **Collaborator:** when BookLeaf sends their email, go to Settings → Collaboration → **Invite**, not Transfer. If the Free plan blocks inviting, tell them, and offer the version-test link and logins.
-  - [ ] **README → Learning process:** write it in your own words.
+  - [x] **README → Learning process:** written (YouTube + official docs). Read it once and adjust anything that doesn't sound like you.
   - [ ] **Optional:** thousands separators on the amounts in the Bubble UI (`:formatted as` on each amount).
   - [ ] **Recording:** follow [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md). Leave `email_mode = off`, because the email shows in Bubble's log.
   - [ ] **F6 and F7** below: prepare for the call, zip, send.

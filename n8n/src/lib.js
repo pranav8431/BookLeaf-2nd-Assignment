@@ -270,7 +270,7 @@ function buildFacts(payload, now, config) {
   const guidance = {
     no_published_books: 'The author has no published books yet, so there are no royalties. Focus on the production update and what happens next.',
     all_paid: 'All royalties are paid up. Acknowledge this positively and thank them. Do not mention quarters, payout cycles or upcoming payouts, and do not say which period the last payout covered.',
-    below_threshold: `The total pending amount (${formatINR(totals.pending)}) is below the ${formatINR(threshold)} minimum payout threshold, so it rolls over to the next quarter and will be paid once the accumulated balance reaches ${formatINR(threshold)}. Explain this plainly; it is policy, not a delay.`,
+    below_threshold: `${formatINR(totals.pending)} is the author's whole unpaid balance built up since their last payout (or since publication if never paid), so call it "your pending balance". Do not mention any quarter, quarter-end date or payout date anywhere in the email, and do not say which period the balance covers. It is below the ${formatINR(threshold)} minimum payout, so it carries forward and is paid in the first quarterly payout after the balance reaches ${formatINR(threshold)}. Explain this plainly; it is policy, not a delay.`,
     overdue: `Some pending royalties are older than our normal cycle (see books with royalty_status "overdue"). Own this directly and apologise without corporate deflection. Then state the commitment exactly as given in follow_up_commitment, and mention the current cycle: ${window.quarter_label} royalties are due by ${humanDay(window.payout_by)}.`,
     pending_in_cycle: `The pending amount is within the normal cycle. Explain that royalties are calculated quarterly and paid within 45 days of the quarter ending, so the ${window.quarter_label} payout is due by ${humanDay(window.payout_by)}, by bank transfer to the account linked in their dashboard.`,
   }[scenario];
@@ -289,13 +289,17 @@ function buildFacts(payload, now, config) {
       copies_sold: totals.copies.toLocaleString('en-IN'),
     },
     // Only when something is pending: given to an all-paid author, the model
-    // turned "Q3 2026 due by …" into a false "Q3 2026 has been paid".
-    payout_cycle: totals.pending > 0 ? {
-      quarter: window.quarter_label,
-      quarter_end: humanDay(window.quarter_end),
-      payout_due_by: humanDay(window.payout_by),
-      minimum_payout: formatINR(threshold),
-    } : null,
+    // turned "Q3 2026 due by …" into a false "Q3 2026 has been paid". Below the
+    // threshold only the minimum matters; given the quarter, the model called
+    // Kavita's ₹850 (earned since 2024) her "Q3 2026 royalties".
+    payout_cycle: totals.pending <= 0 ? null : scenario === 'below_threshold'
+      ? { minimum_payout: formatINR(threshold) }
+      : {
+        quarter: window.quarter_label,
+        quarter_end: humanDay(window.quarter_end),
+        payout_due_by: humanDay(window.payout_by),
+        minimum_payout: formatINR(threshold),
+      },
     published_books: published,
     books_in_production: books.filter((b) => b.in_production),
     support_email: config.support_email,

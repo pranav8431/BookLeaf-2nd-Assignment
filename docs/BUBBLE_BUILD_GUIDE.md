@@ -8,7 +8,7 @@ Conventions: `Search for Books (author = X)` means a *Do a search for* with that
 
 ## How the deployed app differs from this guide
 
-The app at `pranavkr1503.bubbleapps.io/version-test` was built with Bubble's editor tooling rather than by hand, and testing it changed a few things. The data model, option sets, statuses, the n8n payload and the log fields are as written below. These parts differ:
+Testing the app at `pranavkr1503.bubbleapps.io/version-test` changed a few things. The data model, option sets, statuses, the n8n payload and the log fields are as written below. These parts differ:
 
 | Area | This guide | Deployed app, and why |
 |---|---|---|

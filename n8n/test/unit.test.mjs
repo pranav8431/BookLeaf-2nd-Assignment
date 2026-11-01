@@ -107,6 +107,9 @@ test('scenarios cover the dataset edge cases', () => {
   assert.deepEqual(kavita.books_in_production[0].production,
     { stage: 'Typesetting', step: 4, of: 9, next: 'Proofreading' });
   assert.equal(kavita.follow_up_commitment, null);
+  // ₹850 is her whole balance since 2024; given the quarter, the model called it "Q3 2026 royalties".
+  assert.deepEqual(kavita.payout_cycle, { minimum_payout: '₹1,000' }, 'no quarter facts below the threshold');
+  assert.match(kavita.scenario_guidance, /Do not mention any quarter/);
 
   const sneha = factsFor('AUTH007', '2026-10-30');
   assert.equal(sneha.totals.pending, '₹7,865');

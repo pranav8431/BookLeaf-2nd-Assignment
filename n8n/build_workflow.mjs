@@ -257,7 +257,12 @@ const errText = (e) => (typeof e === 'string' ? e : (e && (e.message || e.descri
 let email_status; let email_detail;
 if (!prep.send) { email_status = 'Not sent'; email_detail = prep.skip_reason; }
 else if (inp.error) { email_status = 'Failed'; email_detail = 'SMTP error: ' + errText(inp.error); }
-else { email_status = 'Sent'; email_detail = 'Sent to ' + prep.to; }
+// Only the SMTP server's acceptance counts as sent: a disabled email node passes
+// its input straight through, which once showed "Sent" for an email never sent.
+else if (!(Array.isArray(inp.accepted) && inp.accepted.length)) {
+  email_status = 'Failed'; email_detail = 'Email node returned no SMTP confirmation (is Send Email (SMTP) disabled?)';
+}
+else { email_status = 'Sent'; email_detail = 'Sent to ' + inp.accepted.join(', ') + ' (' + String(inp.response || '').slice(0, 40) + ')'; }
 return [{
   json: {
     status: 'Success',

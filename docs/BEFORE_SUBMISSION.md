@@ -2,7 +2,7 @@
 
 Do these in order. Parts 1 and 2 change the live n8n workflow, so do them **before** recording the video. Then the recording shows the fixed email and a real email arriving.
 
-1. [Fix Kavita's email](#1-fix-kavitas-email) (15 min)
+1. ~~Fix Kavita's email~~ (done)
 2. [Turn on email sending (SMTP)](#2-turn-on-email-sending-smtp) (20 min)
 3. [Update the README and demo script for email](#3-update-the-readme-and-demo-script-for-email) (5 min)
 4. [Everything else](#4-everything-else-before-you-send) (checklist)
@@ -10,60 +10,19 @@ Do these in order. Parts 1 and 2 change the live n8n workflow, so do them **befo
 
 ---
 
-## 1. Fix Kavita's email
+## 1. Fix Kavita's email (done, 2 Nov 2026)
 
-**The problem.** Kavita's log row says *"Your Q3 2026 royalties total ₹850."* That's false. ₹850 is everything she has earned since her book came out in November 2024, not one quarter's earnings. Claude mixed up two facts it was given: her pending total (₹850) and the current cycle (Q3 2026). The instruction for her case (`below_threshold`) never said they were different, so it guessed.
+**The problem.** Kavita's email said *"Your Q3 2026 royalties total ₹850."* That was false: ₹850 is everything she has earned since November 2024. Claude was given the current cycle (Q3 2026) in the facts and attached it to her balance.
 
-**The fix.** Make the instruction say it explicitly. It lives in code (`buildFacts()` in `n8n/src/lib.js`), not in the system prompt, because each scenario has its own instruction.
+**The fix**, in `buildFacts()` in [`n8n/src/lib.js`](../n8n/src/lib.js):
 
-### 1a. Edit the instruction
+- Below the ₹1,000 minimum, the facts no longer include a quarter or due date. `payout_cycle` is only `{ minimum_payout: '₹1,000' }`.
+- The `below_threshold` instruction tells Claude to call it "your pending balance", and not to mention any quarter or payout date.
+- A unit test checks both. `npm test` → 10 pass.
 
-In [`n8n/src/lib.js`](../n8n/src/lib.js), find the line that starts with `below_threshold:` (about line 273) and replace the whole line with:
+**Done:** the export was rebuilt, the live *Compute Royalty Facts* node was updated, and the workflow was published. A test run (n8n execution #25) now says: *"Your pending balance of ₹850 is below our minimum payout threshold of ₹1,000. This means it will carry forward and be paid out in the first quarterly payout after your total pending balance reaches ₹1,000."* It passed every check.
 
-```js
-    below_threshold: `${formatINR(totals.pending)} is the author's whole unpaid balance built up since their last payout (or since publication if never paid). It is not one quarter's royalties: never tie it to a quarter, so never write "Your ${window.quarter_label} royalties total ..."; call it "your pending balance". It is below the ${formatINR(threshold)} minimum payout, so it carries forward and is paid in the first quarterly payout after the balance reaches ${formatINR(threshold)}. Do not give a payout date. Explain this plainly; it is policy, not a delay.`,
-```
-
-### 1b. Add a test
-
-In [`n8n/test/unit.test.mjs`](../n8n/test/unit.test.mjs), find `assert.equal(kavita.follow_up_commitment, null);` (about line 108). Add these lines under it:
-
-```js
-  // ₹850 is her whole balance since 2024; the model once called it "Q3 2026 royalties".
-  assert.match(kavita.scenario_guidance, /not one quarter's royalties/);
-  assert.match(kavita.scenario_guidance, /never write "Your Q3 2026 royalties total/);
-```
-
-### 1c. Test and rebuild
-
-```bash
-cd ~/Desktop/bookleaf2
-npm test         # expect: pass 10, fail 0
-npm run build    # regenerates n8n/bookleaf_royalty_summary.workflow.json
-```
-
-### 1d. Put the new code into the live n8n
-
-Only the **Compute Royalty Facts** node changed. Print its new code:
-
-```bash
-node -e "const w=require('./n8n/bookleaf_royalty_summary.workflow.json');console.log(w.nodes.find(n=>n.name==='Compute Royalty Facts').parameters.jsCode)" > /tmp/compute_facts.js
-```
-
-1. Open `/tmp/compute_facts.js` in VS Code and copy everything.
-2. In n8n, open the workflow and double-click **Compute Royalty Facts**.
-3. Click in the code box, press Ctrl+A, then paste.
-4. Close the node, click **Save**, then **Publish**. An edit only goes live once it's published.
-
-Don't re-import the whole file instead. That creates a second workflow with its own webhook URL, and you would have to reselect every credential.
-
-### 1e. Check it
-
-1. Wait 2 minutes after Kavita's last send, so the duplicate guard doesn't skip it.
-2. In Bubble as admin, open **Kavita Deshmukh** → **Generate & Send Royalty Summary**.
-3. Read the new log row. It should say something like "your pending balance of ₹850 is below our ₹1,000 minimum…", with no "Q3 2026 royalties total".
-
-If Claude still writes it, run the send again. If it keeps happening, tell me and I'll add an automatic check that rejects that phrase.
+**Left for you:** nothing. The next time you send Kavita from Bubble (for example in the recording), the log will show the new wording.
 
 ---
 
@@ -133,8 +92,7 @@ Once 2e works, three places still say email is off:
 1. **README.md**, under the test-logins table, replace the sentence starting "These are test accounts on test data…" with:
    > These are test accounts on test data. Email sending is on in **redirect** mode: each summary is logged in Bubble *and* emailed to my own inbox (the subject names the intended author), so the sample authors' real-domain addresses are never mailed.
 2. **README.md §4**, in *Email modes*, change "`redirect` (default)" to "`redirect` (what the live workflow uses)".
-3. **docs/DEMO_SCRIPT.md**, line 7: replace "Leave n8n `email_mode = off`…" with "n8n is in `email_mode = redirect`: show the log row in Bubble, then the same email in your inbox."
-   - In the 2:05 row, add "switch to Gmail and show the same email arrived".
+3. **docs/DEMO_SCRIPT.md** already assumes `redirect` (Scene 7 shows the email in Gmail), so it needs no change.
 
 Or ask me and I'll make these three edits.
 
@@ -143,10 +101,7 @@ Or ask me and I'll make these three edits.
 ## 4. Everything else before you send
 
 **The work**
-- [ ] **README → "Learning process"** (§9). Write it yourself, in the first person. The brief weights this criterion at 15% and asks for it by name. Cover:
-  - what you read or watched (manual.bubble.io, videos)
-  - what confused you: privacy rules being single-hop only, the Free plan's backend-workflow limit, timezones on dates, building JSON in Bubble
-  - how you worked around each one
+- [x] **README → "Learning process"** (§9). Written: YouTube and official docs, how you approached it, a table of what tripped you up, and what you'd do differently. Read it once before submitting. If a video or doc page really helped you, add its name; specific sources read as more genuine.
   - what you'd do differently
 - [ ] **Show the "all paid" email once.** Bulk correctly skips Farhan, so no all-paid email exists yet, and the brief asks for one. As admin, open **Farhan Sheikh** → Generate. The email should be a thank-you with no pending amount. Show it in the recording too.
 - [ ] **Optional: thousands separators in Bubble.** Amounts show `₹84024`. In the editor, on each amount text, click the expression → `:formatted as` → number with a thousands separator. They're on the `AuthorRoyaltyView` reusable and the admin page.

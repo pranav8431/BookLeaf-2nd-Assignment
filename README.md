@@ -69,7 +69,7 @@ The schema follows the same rules I'd use for a relational database:
 
 - **Entities match the business.** Author, Book, RoyaltyPayout and NotificationLog are separate types. User (login) is separate from Author (publishing profile), because an admin is a user without an author profile, and an author's login is created only when they claim it.
 - **The foreign key lives on the child.** `Book.author` is the one link. I didn't add an `Author.books` list that would have to be kept in sync. `RoyaltyPayout` also stores `author` (denormalised) so its privacy rule is a single hop.
-- **Option sets for closed vocabularies:** roles, statuses, platforms, print partners and production stages. Badge colours and labels are option-set attributes, so the UI needs no colour conditionals. `ProductionStage.step` gives "stage 3 of 9".
+- **Option sets for closed vocabularies:** roles, statuses, platforms, print partners and production stages. Badge labels are an option-set attribute (`RoyaltyStatus.label`), and the badge colour is one conditional per status. `ProductionStage.step` gives "stage 3 of 9".
 - **Source figures are stored as given; derived values are stored only where Bubble needs them.** Royalty totals stay exactly as in the dataset. `royalty_status` and `payout_status` are stored because Bubble can only filter searches on stored fields, and the admin page must filter by payout status. One set of actions owns the rule that sets them: they run when an admin opens the admin page, so the badges are recomputed against today's date before anyone acts on them.
 - **Dates are stored at 12:00 IST.** A date-only value stored at midnight IST is the previous day in any browser west of India. Noon keeps the calendar day right from UTC−6:30 to UTC+11:30. Timestamps (log rows) are always displayed in IST and labelled, whatever timezone the viewer's browser reports.
 - **Payout history.** The dataset only has cumulative totals and a last-payout date. I seed one clearly labelled "opening balance" payout per book, and future payouts are appended as new rows. This gives the admin a real history table without inventing transactions.
@@ -235,13 +235,48 @@ Self-hosted n8n needs a public URL for Bubble to call (for example `ngrok http 5
 
 - **Free plan limits shaped the architecture.** There is no Data API or Workflow API, so there is no n8n → Bubble callback. Backend workflows exist but are capped (see [§3](#3-bubble--n8n-integration)). Rather than require a paid plan, I made the webhook response carry the full result, ran sending and bulk in page workflows, and kept the callback and the backend workflows as an upgrade that's already wired up.
 - **Bubble has no if/else for field values.** The book status rule uses six mutually exclusive searches, so their order doesn't matter. The author status uses an ordered "worst wins" sequence that reads raw book fields rather than the statuses just written.
-- **Loading the data.** Bubble's CSV import links related things by unique ID only. I loaded the 10 authors, 18 books and 12 opening-balance payouts with Bubble's editor tooling, created parents first and linked children by the IDs Bubble returned. The CSVs in `data/bubble_import/` (carrying `author_code` / `book_code`) and the guide are the manual route to the same result.
+- **Loading the data.** Bubble's CSV import links related things by unique ID only. I loaded the 10 authors, 18 books and 12 opening-balance payouts parents first, then linked each child by the ID Bubble gave its parent. The CSVs in `data/bubble_import/` (carrying `author_code` / `book_code`) and the guide are the manual route to the same result.
 - **Timezones.** My browser reported UTC, so log times showed 6:37 pm for a run at 12:07 am IST, and midnight-IST dates showed as the previous day. Dates are now stored at noon IST and timestamps are formatted in a fixed Asia/Kolkata zone with an "IST" label.
 - **Building JSON in Bubble.** `:format as text` with `:formatted as JSON-safe` builds the books array. Numbers and dates are sent as strings so that an empty value can't break the JSON, and n8n parses them tolerantly.
 - **The badge rule and the policy can disagree.** Kavita's ₹850 is red by the brief's rule (never paid, published more than 90 days ago), yet it's correctly unpaid under the ₹1,000 threshold. The badge follows the brief; the email explains the policy, and her dashboard shows a threshold hint. I'd raise this with ops: the badge rule should probably ignore balances below the threshold.
 
 ### Learning process
-*(My own notes on learning Bubble: what I read or watched, what tripped me up, and what I'd do differently.)*
+
+Bubble and n8n were both new to me. I learned them from **YouTube tutorials** and the **official documentation**: the Bubble manual (manual.bubble.io) and the n8n docs (docs.n8n.io). I also used an AI coding assistant to speed up the work, which the brief allows. I made the design decisions, tested every flow, and worked through each problem below myself.
+
+**How I approached it**
+
+1. **Concepts before building.**
+   - **Bubble:** I watched introductory videos on the editor (data types, the Design tab, workflows), then read the manual sections I needed: data types and option sets, privacy rules, repeating groups, custom states, reusable elements, the API Connector, and backend workflows.
+   - **n8n:** I started with videos on webhooks, IF and Code nodes, then read the docs on the Webhook and *Respond to Webhook* nodes, error outputs and retries, workflow static data, and the HTTP Request node with AWS credentials.
+2. **Mapping to what I already know.**
+   - **Bubble:** a data type is a table, a link field is a foreign key, an option set is an enum, a repeating group is list rendering, a reusable element is a component, a custom state is component state, and *Only when* is an `if`.
+   - **n8n:** an item is a row of JSON, and a Code node is a function over those rows.
+
+   Once I had that map, most of the documentation clicked.
+3. **The data model first,** as the brief recommends, and only then the screens. In Bubble, most of the UI turned out to be searches and expressions over the data, so a clean model made the UI quick to build.
+4. **Logic I could test.** I wrote the n8n logic (validation, the payout window, the duplicate guard, the email checks) as plain JavaScript with unit tests, then copied it into the Code nodes with a build script. I trust tests more than clicking through a workflow by hand.
+
+**What tripped me up, and how I got past it**
+
+| Problem | What I learned / did |
+|---|---|
+| A privacy rule like `This Book's author's user is Current User` was rejected | Bubble privacy rules follow only **one hop**. I compare both sides one hop away (`This Book's author is Current User's author`), and store `author` on RoyaltyPayout as well so its rule is one hop too. |
+| `Current User's email` couldn't be used in a privacy rule | Sign-up copies the email into a normal `login_email` field, which a rule can use. |
+| No if/else in workflows | Several actions with mutually exclusive *Only when* conditions. The six status rules are written so their order doesn't matter. |
+| Sends stuck on *Processing* during a bulk run | The **Logs** tab showed "This app reached a workflow limit available on the Free plan". I moved sending to page workflows and added a 3-minute "No response" fallback so nothing hangs. |
+| Times showed in UTC (12:07 am IST appeared as 6:37 pm) | `:formatted as` uses the viewer's timezone. I set a static Asia/Kolkata zone and store dates at noon IST. |
+| Building a JSON array in Bubble | `:format as text` with `:formatted as JSON-safe`, so a title with a quote can't break the payload. |
+| CSV import couldn't link books to authors | Bubble links by unique ID only, so I loaded parents first and linked children by the IDs Bubble returned. |
+| An n8n edit didn't take effect | In n8n an edit stays a draft until you **Publish**. |
+| A correct email was rejected | Diya's title has a curly apostrophe and Claude wrote a straight one. The title check now ignores quote style, with a unit test. |
+| Bedrock answered 400 "Content Type invalid" | The HTTP Request node needed explicit `Content-Type` and `Accept: application/json` headers. |
+
+**What I'd do differently**
+
+- Read Bubble's plan limits before designing. The Free plan's caps on backend workflows and the Data API changed the architecture, and I found them late.
+- Set the timezone handling on day one instead of fixing it after seeing wrong times.
+- Get one thin path working end to end first (one button → webhook → log row), then build the rest around it. Most of my real bugs only showed up when the two systems actually talked to each other.
 
 ## 10. What I'd do next
 
