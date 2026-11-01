@@ -17,3 +17,8 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Personal notes and prep material: kept locally, not submitted
+learn/
+docs/
+STEPS.md

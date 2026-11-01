@@ -8,7 +8,6 @@ Authors log in to see their books, royalties and a green/yellow/red payout badge
 |---|---|
 | Bubble app | https://pranavkr1503.bubbleapps.io/version-test/index (test logins below) |
 | n8n workflow export | [`n8n/bookleaf_royalty_summary.workflow.json`](n8n/bookleaf_royalty_summary.workflow.json) |
-| Bubble build reference (schema, privacy rules, every workflow) | [`docs/BUBBLE_BUILD_GUIDE.md`](docs/BUBBLE_BUILD_GUIDE.md) |
 | Data import files | [`data/bubble_import/`](data/bubble_import/), generated from `bookleaf_sample_data.json` |
 | Prompt | [`n8n/src/prompt.js`](n8n/src/prompt.js) |
 | Tests | [`n8n/test/`](n8n/test/): unit tests, end-to-end run in real n8n, live prompt check |
@@ -23,7 +22,7 @@ The app is on Bubble's Free plan, which can't deploy to Live, so the link above 
 | Author | priya.sharma@email.com | testOasswird |
 | Author (for the isolation test) | rohit.kapoor@email.com | testOasswird |
 
-These are test accounts on test data. Email sending is off (`email_mode = off`), so a summary is written into the notification log and nothing is mailed to the sample authors.
+These are test accounts on test data. Email sending is on in **redirect** mode: each summary is logged in Bubble *and* emailed through Gmail SMTP to my own inbox, with the intended author in the subject (`[Test - for ananya.reddy@email.com] …`). The sample authors' real-domain addresses are never mailed.
 
 ---
 
@@ -56,7 +55,60 @@ sequenceDiagram
 
 ## 2. Bubble database
 
-Full field list: [build guide §2](docs/BUBBLE_BUILD_GUIDE.md#2-data-types-and-fields-data--data-types).
+<details>
+<summary><b>Full field list</b></summary>
+
+```
+User (built-in)
+  role              Role
+  author            Author             the author profile this login belongs to (empty for admins)
+  login_email       text               copy of the login email, usable in privacy rules
+
+Author
+  author_code       text               "AUTH001", the ID from the source data
+  name, email, phone, city   text
+  joined_date       date
+  user              User               back-link used by privacy rules
+  payout_status     RoyaltyStatus      worst status across the author's books (stored so admins can filter)
+
+Book
+  book_code         text               "BK001"
+  author            Author             one Author has many Books
+  title, isbn, genre text
+  status_label      text               exactly as in the data, e.g. "In Production - Cover Design"
+  production_stage  ProductionStage
+  is_published      yes / no
+  publication_date  date
+  mrp, royalty_per_copy, copies_sold,
+  total_royalty_earned, royalty_paid, royalty_pending   number
+  last_payout_date  date
+  print_partner     PrintPartner
+  available_on      list of Platform
+  royalty_status    RoyaltyStatus      derived; recomputed when an admin opens the admin page
+
+RoyaltyPayout
+  payout_code       text
+  book              Book
+  author            Author             denormalised so the privacy rule is one hop
+  amount            number
+  payout_date       date
+  note              text
+
+NotificationLog
+  author            Author
+  triggered_by      User
+  trigger_type      TriggerType        Single / Bulk
+  batch_id          text               shared by every row of one bulk run
+  status            NotificationStatus Processing / Success / Failed / Skipped
+  sent_to           text               author email at the time of sending
+  completed_at      date
+  email_subject, email_body   text
+  email_status, email_detail  text     Sent / Not sent / Failed, and why
+  error_message     text
+  n8n_execution_id  text               links the row to the n8n execution
+```
+
+</details>
 
 ```
 User ──(author)──▶ Author ◀──(author)── Book ◀──(book)── RoyaltyPayout
@@ -74,7 +126,7 @@ The schema follows the same rules I'd use for a relational database:
 - **Dates are stored at 12:00 IST.** A date-only value stored at midnight IST is the previous day in any browser west of India. Noon keeps the calendar day right from UTC−6:30 to UTC+11:30. Timestamps (log rows) are always displayed in IST and labelled, whatever timezone the viewer's browser reports.
 - **Payout history.** The dataset only has cumulative totals and a last-payout date. I seed one clearly labelled "opening balance" payout per book, and future payouts are appended as new rows. This gives the admin a real history table without inventing transactions.
 
-**Privacy rules** ([§3](docs/BUBBLE_BUILD_GUIDE.md#3-privacy-rules-data--privacy)): every type defaults to *nothing visible*. Admins see everything. Authors see their own Author row, their books and their payouts, and never see notification logs. Bubble only accepts single-hop conditions, so the rules are written that way:
+**Privacy rules**: every type defaults to *nothing visible*. Admins see everything. Authors see their own Author row, their books and their payouts, and never see notification logs. Bubble only accepts single-hop conditions, so the rules are written that way:
 
 - **Book, RoyaltyPayout:** `This Book's author is Current User's author` (and Current User's author is not empty, so a user with no author profile matches nothing).
 - **Author:** `This Author's user is Current User`, plus `This Author's email is Current User's login_email`. The second rule lets a new sign-up find the Author record that matches their email so it can be linked. Bubble won't use the built-in `email` field in a privacy rule, so sign-up copies it into a `login_email` field.
@@ -91,7 +143,7 @@ The rules are enforced on Bubble's server; the page redirects are only for conve
 - **Red:** pending and the last payout was more than 90 days ago, or the book has never been paid and was published more than 90 days ago.
 - **Grey:** not yet published.
 
-With today's date every pending book is red, because the latest payout in the data is 1 Dec 2025. The rule is behaving as written; [§6](docs/BUBBLE_BUILD_GUIDE.md#6-reusable-element-statusengine-royalty-status-rule) shows how to shift the cutoff for a demo.
+With today's date every pending book is red, because the latest payout in the data is 1 Dec 2025. The rule is behaving as written.
 
 ## 3. Bubble ↔ n8n integration
 
@@ -143,10 +195,10 @@ The Code-node logic lives in [`n8n/src/lib.js`](n8n/src/lib.js) and is unit-test
 **Email modes** (`email_mode` in Config):
 
 - `off`: log to Bubble only, which is the required output.
-- `redirect` (default): send to your own inbox, with the intended recipient shown in the subject. The sample authors' addresses are on a real domain (`email.com`), so a demo should never mail them.
+- `redirect` (what the live workflow uses): send to your own inbox, with the intended recipient shown in the subject. The sample authors' addresses are on a real domain (`email.com`), so a demo should never mail them.
 - `live`: send to the author.
 
-An SMTP failure doesn't fail the summary. The log row says `email_status: Failed` with the reason.
+An SMTP failure doesn't fail the summary. The log row says `email_status: Failed` with the reason. The log says *Sent* only when the SMTP server confirms it accepted the message. I added that check after a disabled email node was reported as *Sent* for an email that never went out.
 
 ## 5. Prompt strategy
 
@@ -210,13 +262,15 @@ Known limit: n8n saves static data at the end of an execution, so two requests a
 | `npm test` | 10 unit tests: payload validation, the badge rule with boundaries, the quarter + 45-day window across year boundaries, scenario selection on the real dataset, prompt hygiene, email checks (invented figure, missing book), duplicate guard, HTML escaping |
 | `npm run test:e2e` | Builds a test copy of the workflow, imports and publishes it in **real n8n (Docker)** with mock Bedrock and Bubble. The mock **recomputes the AWS SigV4 signature** and rejects anything AWS would reject. It then checks all 9 paths: no key → 403 and nothing runs; success + callback; double trigger → Skipped with no AI call; AI 500 → 3 attempts then Failed; retry allowed after a failure; invented figure rejected; invalid payload; below-threshold + in-production author; callback down → still answers |
 | `npm run try-webhook` | Real Claude-on-Bedrock output for all 10 authors through your live n8n, checked by the same rules |
-| [Build guide §10](docs/BUBBLE_BUILD_GUIDE.md#10-test-checklist) | Manual Bubble checks: totals, badges, data isolation, filters, single/bulk/duplicate/failure |
+| Manual, in the app | Totals against the JSON, badges, data isolation (Priya, Rohit, admin), filters, single / bulk / duplicate / failure |
 
 **Live run in the deployed app (31 Oct 2026, IST), Bubble → n8n → Bedrock:**
 
 - **Single send (Kavita):** *Success* in about 5 s. Clicking again 15 s later gave *Skipped* ("already triggered 13s ago").
 - **Bulk:** all 9 authors with a pending balance went through. Every figure in every email matched the data, and Farhan (fully paid) was correctly left out.
 - **The check caught a real problem.** Diya's book is stored as *Durga’s Daughters* with a curly apostrophe, and Claude wrote a straight one. The title check compared them character for character, so it rejected a correct email. That run logged *Failed* with the exact reason, and nothing went out. Titles are now compared ignoring quote style, dashes and case (with a unit test), and the re-run passed.
+- **A wording fix from reading the output.** Kavita's first email said "Your Q3 2026 royalties total ₹850", but ₹850 is everything she has earned since 2024. For balances below the ₹1,000 minimum, the facts no longer include a quarter or due date, and the prompt tells Claude to call it "your pending balance" (with a unit test). Her email now reads: "Your pending balance of ₹850 is below our minimum payout threshold of ₹1,000…"
+- **Real email delivery (2 Nov 2026).** In redirect mode, Gmail SMTP accepted the summary (`250 2.0.0 OK`) and it arrived in my inbox, with the Bubble log showing *email: Sent*.
 
 ## 8. Setting up n8n
 
@@ -235,7 +289,7 @@ Self-hosted n8n needs a public URL for Bubble to call (for example `ngrok http 5
 
 - **Free plan limits shaped the architecture.** There is no Data API or Workflow API, so there is no n8n → Bubble callback. Backend workflows exist but are capped (see [§3](#3-bubble--n8n-integration)). Rather than require a paid plan, I made the webhook response carry the full result, ran sending and bulk in page workflows, and kept the callback and the backend workflows as an upgrade that's already wired up.
 - **Bubble has no if/else for field values.** The book status rule uses six mutually exclusive searches, so their order doesn't matter. The author status uses an ordered "worst wins" sequence that reads raw book fields rather than the statuses just written.
-- **Loading the data.** Bubble's CSV import links related things by unique ID only. I loaded the 10 authors, 18 books and 12 opening-balance payouts parents first, then linked each child by the ID Bubble gave its parent. The CSVs in `data/bubble_import/` (carrying `author_code` / `book_code`) and the guide are the manual route to the same result.
+- **Loading the data.** Bubble's CSV import links related things by unique ID only. I loaded the 10 authors, 18 books and 12 opening-balance payouts parents first, then linked each child by the ID Bubble gave its parent. The CSVs in `data/bubble_import/` (carrying `author_code` / `book_code`) are the manual route to the same result.
 - **Timezones.** My browser reported UTC, so log times showed 6:37 pm for a run at 12:07 am IST, and midnight-IST dates showed as the previous day. Dates are now stored at noon IST and timestamps are formatted in a fixed Asia/Kolkata zone with an "IST" label.
 - **Building JSON in Bubble.** `:format as text` with `:formatted as JSON-safe` builds the books array. Numbers and dates are sent as strings so that an empty value can't break the JSON, and n8n parses them tolerantly.
 - **The badge rule and the policy can disagree.** Kavita's ₹850 is red by the brief's rule (never paid, published more than 90 days ago), yet it's correctly unpaid under the ₹1,000 threshold. The badge follows the brief; the email explains the policy, and her dashboard shows a threshold hint. I'd raise this with ops: the badge rule should probably ignore balances below the threshold.
