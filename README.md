@@ -7,6 +7,7 @@ Authors log in to see their books, royalties and a green/yellow/red payout badge
 | Deliverable | Where |
 |---|---|
 | Bubble app | https://pranavkr1503.bubbleapps.io/version-test/index (test logins below) |
+| Demo video (about 4½ min) | https://youtu.be/pUECaKchg50 |
 | n8n workflow export | [`n8n/bookleaf_royalty_summary.workflow.json`](n8n/bookleaf_royalty_summary.workflow.json) |
 | Data import files | [`data/bubble_import/`](data/bubble_import/), generated from `bookleaf_sample_data.json` |
 | Prompt | [`n8n/src/prompt.js`](n8n/src/prompt.js) |
